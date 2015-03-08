@@ -1,20 +1,24 @@
 /*
- * The Bus Information Agent
- * Created by Earl Balai Jr
+* The Bus Information Agent
+* Created by Earl Balai Jr
  */
 package main
 
 import (
 	"encoding/xml"
+	"flag"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"strconv"
 	"strings"
 )
 
+var hea_key string
+var enableDatabase bool
+
 const (
-	hea_key = "API-KEY-HERE" // Sign up for one here: http://api.thebus.org/
 	bus_api_url = "http://api.thebus.org/arrivals/"
 )
 
@@ -51,6 +55,11 @@ type GatherBlock struct {
 	Action string   `xml:"action,attr"`
 	Method string   `xml:"method,attr"`
 	Say    SayBlock `xml:",omitempty"`
+}
+
+type SmsBlock struct {
+	XMLName xml.Name `xml:"Response"`
+	Message string   `xml:",omitempty"`
 }
 
 func phone_arrivals(w http.ResponseWriter, r *http.Request) {
@@ -170,14 +179,14 @@ func sms(w http.ResponseWriter, r *http.Request) {
 	fmt.Printf("Sender: %s Message: %d\n", sender, message)
 
 	// Log specific
-	request_type := "SMS"
-	from_city := r.FormValue("FromCity")
-	from_state := r.FormValue("FromState")
-	from_zip := r.FormValue("FromZip")
-	from_country := r.FormValue("FromCountry")
-	call_sid := "SMS-METHOD"
+	requestType := "SMS"
+	fromCity := r.FormValue("FromCity")
+	fromState := r.FormValue("FromState")
+	fromZip := r.FormValue("FromZip")
+	fromCountry := r.FormValue("FromCountry")
+	callSid := "SMS-METHOD"
 
-	log_data := []string{request_type, sender, fmt.Sprintf("%d", message), from_city, from_state, from_zip, from_country, call_sid, "UNKNOWN"}
+	log_data := []string{requestType, sender, fmt.Sprintf("%d", message), fromCity, fromState, fromZip, fromCountry, callSid, "UNKNOWN"}
 
 	log2DB(log_data)
 
@@ -233,7 +242,7 @@ func log2DB(data []string) {
 	dinfo := fmt.Sprintf("Request Type: %s\nPhone Number: %s\nStop ID: %s\nCaller City: %s\nCaller State: %s\nCaller Zip: %s\nCaller Country: %s\nCall SID: %s\nCall Status: %s", request_type, phone_number, stop_id, caller_city, caller_state, caller_zip, caller_country, call_sid, call_status)
 	fmt.Println(dinfo)
 
-	if phone_number != "" {
+	if phone_number != "" && enableDatabase {
 
 		db := OpenDB()
 
@@ -248,6 +257,16 @@ func log2DB(data []string) {
 }
 
 func main() {
+
+	flag.StringVar(&hea_key, "key", "", "HEA The Bus API Key")
+	flag.BoolVar(&enableDatabase, "useDB", false, "Enable usage of PostgreSQL database true/false\nExample: -useDB true")
+
+	flag.Parse()
+
+	if len(hea_key) <= 0 {
+		log.Fatal("Please specify the -key argument with your api key.\nExample: -key \"2D1AB133-822C-414B-88FF-62CC2C94AE49\"")
+	}
+
 	http.HandleFunc("/twiml", twiml)
 	http.HandleFunc("/getarrivals", phone_arrivals)
 	http.HandleFunc("/callstatus", update_callstatus)

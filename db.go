@@ -1,6 +1,6 @@
 /*
- * The Bus Information Agent
- * Created by Earl Balai Jr
+* The Bus Information Agent
+* Created by Earl Balai Jr
  */
 package main
 
